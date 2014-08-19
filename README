@@ -1,0 +1,7 @@
+  SleepyLibC
+
+This is a micro-libc for Linux x86_64 only. It is not POSIX conformant
+and does not try to be. Its main advantage is to be ridiculously easy
+to use. You just need to compile it with you project and add the right
+compiler options. See the Makefile to see how easy it is.
+
