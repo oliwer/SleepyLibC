@@ -6,11 +6,7 @@
 void
 sysfatal(const char *s1, char *s2, int errno)
 {
-	fputs(s1, stderr);
-	fputs(s2, stderr);
-	fputs(" error ", stderr);
-	fputn(errno, stderr);
-	fputc('\n', stderr);
+	fprintf(stderr, "%s%s code %d\n", s1, s2, errno);
 	exit(1);
 }
 

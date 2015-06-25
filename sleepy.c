@@ -9,6 +9,8 @@
 
 int main(int argc, char **argv);
 
+char **environ;
+
 __asm__("\
 .text \n\
 .global _start \n\
@@ -23,9 +25,9 @@ void __cstart(long *p)
 {
 	int argc = p[0];
 	char **argv = (void *)(p+1);
-	argc = main(argc, argv);
-	/* exit, argc now hold the return code */
-	__syscall1(SYS_exit_group, (long)argc);
+
+	environ = argv + argc + 1;
+	exit(main(argc, argv));
 }
 
 
@@ -63,6 +65,12 @@ ssize_t
 write(int fd, const void *buf, size_t len)
 {
 	return __syscall3(SYS_write, (long)fd, (long)buf, (long)len);
+}
+
+int
+unlink(const char *path)
+{
+	return __syscall1(SYS_unlink, (long)path);
 }
 
 int
@@ -109,6 +117,22 @@ strcmp(const char *s1, const char *s2)
 		diff = (int)*s1 - (int)*s2;
 
 	return diff;
+}
+
+int
+strncmp(const char *s1, const char *s2, size_t len)
+{
+	if (!len)
+		return 0;
+
+	for (; len; --len, s1++, s2++) {
+		if (*s1 != *s2)
+			return *(unsigned char *)s1 - *(unsigned char *)s2;
+		if (*s1 == '\0')
+			break;
+	}
+
+	return 0;
 }
 
 int
@@ -194,6 +218,42 @@ puts(const char *str)
 	return ret;
 }
 
+/* stdlib.h */
+
+int
+abs(int num)
+{
+	return num < 0 ? -num : num;
+}
+
+long
+labs(long num)
+{
+	return num < 0 ? -num : num;
+}
+
+char*
+getenv(const char *name)
+{
+	extern char **environ;
+	char **ep, *vp;
+
+	if (!name || !*name)
+		return NULL;
+
+	for (ep = environ; *ep; ++ep) {
+		vp = *ep;
+
+		while (*vp != '=')
+			vp++;
+
+		if (!strncmp(name, *ep, vp - *ep))
+			return ++vp;
+	}
+
+	return NULL;
+}
+
 
 /* unistd.h */
 
@@ -227,8 +287,7 @@ getopt(int argc, char * const argv[], const char *optstr)
 	}
 
 	/* option not found */
-	fputs(argv[optind], stderr);
-	fputs(": unknown option\n", stderr);
+	fprintf(stderr, "%s: unknown option\n", argv[optind]);
 	return '?';
 
 }
@@ -268,79 +327,144 @@ ltoa (long num, char *buf, size_t buf_len)
 	return buf;
 }
 
-int
-fputn(long num, FILE *stream)
-{
-	char buf[32];  /* More than enough */
-
-	bzero(buf, sizeof buf);
-	return fputs(ltoa(num, buf, sizeof buf), stream);
-}
 
 /*
- * Supported formats: %c %d %s %li %lu
+ * Adapted from libulz
+ * Supports all int types but only in base 10, and %s, and %% for an escaped %
+ * Returns the number of bytes written to the target. Should behave exactly
+ * as posix sprintf except %x also returns hex decimals in uppercase.
+ * destsize is treated like in the original. It will leave space for a trailing 0,
+ * if NULL is passed as dest it will return the number of bytes it would have
+ * written if a sufficiently large buffer was provided.
  */
+int
+vsnprintf(char* dest, size_t destsize, const char *format, va_list ap)
+{
+	char *ins, *a, *o = dest;
+	char *omax = dest ? dest + destsize - 1 : NULL;
+	char cbuf[32];
+	long inn;
+	int res = 0;
+	int lflag;
+
+	for (a = (char*)format; *a; a++) {
+		if (*a == '%') {
+			++a;
+			switch (*a) {
+				case '%':
+					goto inschar;
+				case 's':
+					ins = va_arg(ap, char*);
+					strmove:
+					if (!ins)
+						return -1;
+					while (*ins) {
+						if (o < omax) {
+							*o = *ins;
+							o++;
+							res++;
+						}
+						else if (!o) {
+							res++;
+						}
+						ins++;
+					}
+					break;
+				case 'c':
+					cbuf[0] = (char)va_arg(ap, int);
+					cbuf[1] = 0;
+					ins = cbuf;
+					goto strmove;
+				case 'd':
+				case 'i':
+					inn = va_arg(ap, int);
+					nconv:
+					ins = ltoa(inn, cbuf, sizeof(cbuf));
+					goto strmove;
+					break;
+				case 'l':
+				case 'z':
+					lflag = a[0] == 'l';
+					if (lflag) {
+						if (a[1] == 'l') {
+							/* treat l and ll the same */
+							a++;
+						}
+					}
+					a++;
+					if (lflag) {
+						inn = va_arg(ap, unsigned long);
+					}
+					else {
+						inn = va_arg(ap, size_t);
+					}
+					goto nconv;
+				case 'u':
+					inn = va_arg(ap, unsigned);
+					goto nconv;
+				default:
+					return -1;
+			}
+		}
+		else {
+			inschar:
+			if (o < omax) {
+				*o = *a;
+				o++;
+				res++;
+			}
+			else if (!o) {
+				res++;
+			}
+		}
+	}
+
+	if (o)
+		*o = '\0';
+
+	return res;
+}
+
+int
+snprintf(char* dest, size_t destsize, const char* fmt, ...)
+{
+	va_list ap;
+	int result;
+
+	va_start(ap, fmt);
+	result = vsnprintf(dest, destsize, fmt, ap);
+	va_end(ap);
+
+	return result;
+}
+
+int
+fprintf(FILE *stream, const char* fmt, ...)
+{
+	char dest[4096];
+	va_list ap;
+	int result;
+
+	va_start(ap, fmt);
+	result = vsnprintf(dest, sizeof(dest), fmt, ap);
+	va_end(ap);
+
+	if (result)
+		result = fputs(dest, stream);
+
+	return result;
+}
+
 int
 vfprintf(FILE *stream, const char *fmt, va_list ap)
 {
-	/* TODO: not finished */
-	char *pos, *lastpos = (char *)fmt;
-	ssize_t written = 0;
-	size_t len;
-	char cval;
-	long lval;
+	char dest[4096];
+	int result;
 
-	/* read the format */
-	while ((pos = strchr(lastpos, '%'))) {
-		/* print the text before the '%', if any */
-		len = pos - lastpos;
-		if (len) {
-			written += write(fileno(stream), lastpos, len);
-		}
+	result = vsnprintf(dest, sizeof(dest), fmt, ap);
 
-		pos++;  /* move to the first char of the type */
+	if (result)
+		result = fputs(dest, stream);
 
-		switch(*pos) {
-		case 'c':
-			cval = va_arg(ap, int);
-			written += write(fileno(stream), &cval, sizeof cval);
-			break;
-		case 'd':
-			lval = (long)va_arg(ap, int);
-			written += fputn(lval, stream);
-			break;
-		case 's':
-			lval = (long)va_arg(ap, char *);
-			written += fputs((const char *)lval, stream);
-			break;
-		case 'l':
-			pos++;
-			switch(*pos) {
-			case 'i':
-			case 'u':
-				lval = va_arg(ap, long);
-				written += fputn(lval, stream);
-				break;
-			}
-		default:
-			fputs("error :(\n", stderr);
-			return -1;
-		}
-		lastpos = pos+1;
-	}
-
-	return written;
-}
-
-int
-fprintf(FILE *stream, const char *fmt, ...)
-{
-	int ret;
-	va_list ap;
-
-	va_start(ap, fmt);
-	ret = vfprintf(stream, fmt, ap);
-	va_end(ap);
-
-	return ret;
+	return result;
 }

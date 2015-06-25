@@ -18,6 +18,7 @@
 #define SYS_lseek               8
 #define SYS_exit               60
 #define SYS_fsync              74
+#define SYS_unlink             87
 #define SYS_exit_group        231
 
 static __inline long __syscall0(long n)
@@ -59,9 +60,26 @@ static __inline long __syscall4(long n, long a1, long a2, long a3, long a4)
 	return ret;
 }
 
+#define CHAR_MAX    127
+#define CHAR_MIN    (-128)
+#define UCHAR_MAX   255
+
+#define SHRT_MAX    32767
+#define SHRT_MIN    (-32768)
+#define USHRT_MAX   65535
+
+#define INT_MAX     2147483647
+#define INT_MIN     (-INT_MAX - 1)
+#define UINT_MAX    4294967295U
 
 #define LONG_MAX    9223372036854775807L
 #define LONG_MIN    (-LONG_MAX - 1L)
+#define ULONG_MAX   18446744073709551615UL
+
+#define SIZE_MAX    ULONG_MAX
+#define SSIZE_MAX   LONG_MAX
+
+#define WORD_SIZE   (sizeof(void*))
 
 #define NULL        ((void *)0L)
 #define EOF         (-1)
@@ -172,34 +190,62 @@ typedef int          FILE;
 #define SEEK_CUR   1
 #define SEEK_END   2
 
-
-void    exit(int);
-int     open(const char *, int, mode_t);
+/* unistd.h */
 int     close(int);
-ssize_t read(int, void *, size_t);
-ssize_t write(int, const void *, size_t);
 int     fsync(int);
+int     getopt(int, char * const *, const char *);
+int     open(const char *, int, mode_t);
+ssize_t read(int, void *, size_t);
+int     unlink(const char *path);
+ssize_t write(int, const void *, size_t);
 
-size_t  strlen(const char *);
-char   *strchr(const char *, int);
-int     strcmp(const char *, const char *);
+/* string.h */
 int     memcmp(const void *, const void *, size_t);
 void   *memset(void *, int, size_t);
-int     fputs(const char *, FILE *);
+#define putc(c,s)   (fputc(c, s))
+#define putchar(c)  (fputc(c, stdout))
+char   *strchr(const char *, int);
+int     strcmp(const char *, const char *);
+size_t  strlen(const char *);
+int     strncmp(const char *, const char *, size_t);
+
+/* stdio.h */
+int     fprintf(FILE *, const char *, ...);
 int     fputc(int, FILE *);
+int     fputs(const char *, FILE *);
+#define printf(...)  (fprintf(stdout, __VA_ARGS__);
 int     puts(const char *);
-int     getopt(int, char * const *, const char *);
+int     snprintf(char *, size_t, const char *, ...);
+#define sprintf(dest, ...)  (snprintf(dest, SIZE_MAX, __VA_ARGS__))
+int     vfprintf(FILE *, const char *, va_list);
+#define vprintf(fmt,ap)  (vfprintf(stdout, fmt, ap))
+#define vsprintf(str,fmt,ap)  (vsnprintf(str, SIZE_MAX, fmt, ap))
+int     vsnprintf(char *, size_t, const char *, va_list);
 
 char   *ltoa(long, char *, size_t);
-int     fputn(long, FILE *);
+
+/* stdlib.h */
+int     abs(int);
+long    labs(long);
+void    exit(int);
+char   *getenv(const char *);
+
+/* ctype.h */
+#define isalpha(a) ((((unsigned)(a)|32)-'a') < 26)
+#define isdigit(a) (((unsigned)(a)-'0') < 10)
+#define islower(a) (((unsigned)(a)-'a') < 26)
+#define isupper(a) (((unsigned)(a)-'A') < 26)
+#define isprint(a) (((unsigned)(a)-0x20) < 0x5f)
+#define isgraph(a) (((unsigned)(a)-0x21) < 0x5e)
+#define tolower(a) ((a)|0x20)
+#define toupper(a) ((a)&0x5f)
 
 /* Helpers */
 
-#define MIN(a,b)    ((a) > (b) ? (b) : (a))
-#define MAX(a,b)    ((a) > (b) ? (a) : (b))
-#define bzero(s,n)  (memset(s, '\0', n))
-#define putchar(c)  (fputc(c, stdout))
-#define putc(c,s)   (fputc(c, s))
-#define NL          (putchar('\n'))
+#define MIN(a,b)      ((a) > (b) ? (b) : (a))
+#define MAX(a,b)      ((a) > (b) ? (a) : (b))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define bzero(s,n)    (memset(s, '\0', n))
+#define NL            (putchar('\n'))
 
 #endif
