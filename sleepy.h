@@ -88,9 +88,6 @@ typedef int          FILE;
 #define EDOM            33      /* Math argument out of domain of func */
 #define ERANGE          34      /* Math result not representable */
 
-/* Sleepy Error codes */
-#define ESTRLONG  999
-
 /* File access flags */
 #define O_RDONLY  00
 #define O_WRONLY  01
