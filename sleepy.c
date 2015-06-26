@@ -43,10 +43,13 @@ void __cstart(long *p)
 #define SYS_lstat               6
 #define SYS_poll                7
 #define SYS_lseek               8
+#define SYS_dup2               33
 #define SYS_exit               60
+#define SYS_fcntl              72
 #define SYS_fsync              74
 #define SYS_unlink             87
 #define SYS_exit_group        231
+#define SYS_dup3              292
 
 static __inline long __syscall0(long n)
 {
@@ -133,6 +136,28 @@ int
 fsync(int fd)
 {
 	return __syscall1(SYS_fsync, (long)fd);
+}
+
+int
+dup3(int old, int new, int flags)
+{
+	int ret;
+
+	if (old == new)
+		return -EINVAL;
+
+	if (flags & O_CLOEXEC) {
+		while ((ret = __syscall3(SYS_dup3, old, new, flags)) == -EBUSY);
+		if (ret != -ENOSYS)
+			return ret;
+	}
+
+	while ((ret = __syscall2(SYS_dup2, old, new)) == -EBUSY);
+
+	if (flags & O_CLOEXEC)
+		__syscall3(SYS_fcntl, new, F_SETFD, O_CLOEXEC);
+
+	return ret;
 }
 
 

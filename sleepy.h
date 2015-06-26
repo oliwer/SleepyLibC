@@ -87,6 +87,8 @@ typedef int          FILE;
 #define EPIPE           32      /* Broken pipe */
 #define EDOM            33      /* Math argument out of domain of func */
 #define ERANGE          34      /* Math result not representable */
+/* Arch specific errno */
+#define ENOSYS          38
 
 /* File access flags */
 #define O_RDONLY  00
@@ -113,6 +115,10 @@ typedef int          FILE;
 #define O_TMPFILE 020200000
 #define O_NDELAY O_NONBLOCK
 
+/* fcntl flags */
+#define O_CLOEXEC  02000000
+#define F_SETFD  2
+
 /* File creation modes */
 #define S_ISUID 04000
 #define S_ISGID 02000
@@ -137,6 +143,8 @@ typedef int          FILE;
 
 /* unistd.h */
 int     close(int);
+#define dup2(old,new)  (dup3(old, new, 0))
+int     dup3(int, int, int);
 int     fsync(int);
 int     getopt(int, char * const *, const char *);
 int     open(const char *, int, mode_t);
