@@ -34,6 +34,62 @@ void __cstart(long *p)
 
 /* System Calls */
 
+#define SYS_read                0
+#define SYS_write               1
+#define SYS_open                2
+#define SYS_close               3
+#define SYS_stat                4
+#define SYS_fstat               5
+#define SYS_lstat               6
+#define SYS_poll                7
+#define SYS_lseek               8
+#define SYS_exit               60
+#define SYS_fsync              74
+#define SYS_unlink             87
+#define SYS_exit_group        231
+
+static __inline long __syscall0(long n)
+{
+	long ret;
+	__asm__ __volatile__ ("syscall" : "=a"(ret) : "a"(n) : "rcx", "r11", "memory");
+	return ret;
+}
+
+static __inline long __syscall1(long n, long a1)
+{
+	long ret;
+	__asm__ __volatile__ ("syscall" : "=a"(ret) : "a"(n), "D"(a1) : "rcx", "r11", "memory");
+	return ret;
+}
+
+static __inline long __syscall2(long n, long a1, long a2)
+{
+	long ret;
+	__asm__ __volatile__ ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2)
+						  : "rcx", "r11", "memory");
+	return ret;
+}
+
+static __inline long __syscall3(long n, long a1, long a2, long a3)
+{
+	long ret;
+	__asm__ __volatile__ ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2),
+						  "d"(a3) : "rcx", "r11", "memory");
+	return ret;
+}
+
+static __inline long __syscall4(long n, long a1, long a2, long a3, long a4)
+{
+	long ret;
+	/* long r10 __asm__("r10") = a4; */
+	__asm__ __volatile__ ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2),
+						  "d"(a3), "r"(a4): "rcx", "r11", "memory");
+	return ret;
+}
+
+
+/* unistd.h */
+
 void
 exit(int status)
 {
