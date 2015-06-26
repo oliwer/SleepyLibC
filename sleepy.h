@@ -206,6 +206,7 @@ void   *memset(void *, int, size_t);
 #define putchar(c)  (fputc(c, stdout))
 char   *strchr(const char *, int);
 int     strcmp(const char *, const char *);
+size_t  strlcpy(char *, const char *, size_t);
 size_t  strlen(const char *);
 int     strncmp(const char *, const char *, size_t);
 
@@ -246,6 +247,5 @@ char   *getenv(const char *);
 #define MAX(a,b)      ((a) > (b) ? (a) : (b))
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define bzero(s,n)    (memset(s, '\0', n))
-#define NL            (putchar('\n'))
 
 #endif
